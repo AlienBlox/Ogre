@@ -1,34 +1,37 @@
 import os
+import asyncio
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
-# Load secret environment variables
 load_dotenv()
 
-# Configure permissions
 intents = discord.Intents.default()
 intents.message_content = True
 
-bot = commands.Bot(command_prefix="/", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Triggers automatically when the bot logs into Discord
 @bot.event
 async def on_ready():
     print(f'Successfully logged in as {bot.user}')
+    await bot.change_presence(activity=discord.Game(name="Bot active"))
     
-    # Set the permanent status message
-    # This will display as: "Playing Bot active"
-    await bot.change_presence(
-        activity=discord.Game(name="Bot active")
-    )
+    # CRUCIAL FOR SLASH COMMANDS: Syncs the commands to Discord globally
+    try:
+        synced = await bot.tree.sync()
+        print(f"Successfully synced {len(synced)} slash command(s).")
+    except Exception as e:
+        print(f"Error syncing tree: {e}")
 
-# Simple activity checker command
-@bot.command()
-async def ping(ctx):
-    latency = round(bot.latency * 1000) 
-    print(f'Run cmd: ping')
-    await ctx.send(f'🏓 Pong! Response time: {latency}ms')
+async def load_extensions():
+    for filename in os.listdir('./cogs'):
+        if filename.endswith('.py'):
+            await bot.load_extension(f'cogs.{filename[:-3]}')
+            print(f'Loaded extension: {filename}')
 
-# Run the bot using your hidden token
-bot.run(os.getenv('DISCORD_TOKEN'))
+async def main():
+    async with bot:
+        await load_extensions()
+        await bot.start(os.getenv('DISCORD_TOKEN'))
+
+asyncio.run(main())
