@@ -27,6 +27,7 @@ async def on_ready():
 @bot.command()
 async def ping(ctx):
     latency = round(bot.latency * 1000) 
+    print(f'Run cmd: ping')
     await ctx.send(f'🏓 Pong! Response time: {latency}ms')
 
 # Run the bot using your hidden token
