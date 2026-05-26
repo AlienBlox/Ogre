@@ -14,25 +14,36 @@ class Report(commands.Cog):
         self.issue_url = f"{self.base_url}/repos/AlienBlox/Ogre/issues"
 
     def _generate_jwt(self):
-        """Generates a high-security signing token required to verify our App identity to GitHub."""
-        app_id = os.getenv("GH_APP_ID")
-        private_key = os.getenv("GH_PRIVATE_KEY")
+            """Generates a high-security signing token required to verify our App identity to GitHub."""
+            app_id = os.getenv("GH_APP_ID")
+            private_key = os.getenv("GH_PRIVATE_KEY")
         
-        if not app_id or not private_key:
-            return None
+            if not app_id or not private_key:
+                print("[Report Cog Error] Missing GH_APP_ID or GH_PRIVATE_KEY in deployment settings.")
+                return None
 
-        # Clean up accidental literal string characters if pasted oddly
-        private_key = private_key.replace("\\n", "\n")
+            # FIX: Explicitly fix stripped line breaks if pasted onto a flat string variable
+            if "-----BEGIN RSA PRIVATE KEY-----" in private_key:
+                # Re-insert proper structural newline separators if the cloud provider squashed them
+                private_key = private_key.replace("\\n", "\n")
+                if "\n" not in private_key.replace("-----BEGIN RSA PRIVATE KEY-----", ""):
+                    # If it's a completely flat single line, restore newlines by spacing it out
+                    private_key = private_key.replace("-----BEGIN RSA PRIVATE KEY-----", "-----BEGIN RSA PRIVATE KEY-----\n")
+                    private_key = private_key.replace("-----END RSA PRIVATE KEY-----", "\n-----END RSA PRIVATE KEY-----")
 
-        # Payload requires current time and expiration window stamps
-        payload = {
-            "iat": int(time.time()) - 60,
-            "exp": int(time.time()) + (10 * 60), # Valid for 10 minutes
-            "iss": int(app_id),
-        }
+            # Payload requires current time and expiration window stamps
+            payload = {
+                "iat": int(time.time()) - 60,
+                "exp": int(time.time()) + (10 * 60), 
+                "iss": int(app_id),
+            }
         
-        # Cryptographically sign the JWT packet using RS256 encryption algorithm
-        return jwt.encode(payload, private_key, algorithm="RS256")
+            try:
+                return jwt.encode(payload, private_key.strip(), algorithm="RS256")
+            except Exception as e:
+                print(f"[JWT Encoding Internal Failure]: Cryptographic signature failed. Layout issue. Error: {e}")
+                return None
+
 
     async def _get_installation_token(self, session):
         """Asynchronously requests a short-lived write token for our specific repository install target."""
