@@ -31,7 +31,7 @@ class Report(commands.Cog):
         payload = {
             "iat": now - 60,               # Set issuance to 1 minute ago to allow for clock drift
             "exp": now + (10 * 60),          # Token remains valid for 10 minutes maximum
-            "iss": int(app_id),              # Your GitHub App ID
+            "iss": app_id,              # Your GitHub App ID
         }
         
         try:
