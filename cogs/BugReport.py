@@ -1,134 +1,69 @@
 import os
-import time
-import base64
 import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes
 
 class Report(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.base_url = "https://github.com"
-        self.issue_url = f"{self.base_url}/repos/AlienBlox/Ogre/issues"
+        # Hardcoded endpoint targeting your specific Ogre repository
+        self.url = "https://github.com"
 
-    def _base64url_encode(self, data: bytes) -> str:
-        """Helper to encode cryptographic components securely for web payload transport."""
-        return base64.urlsafe_b64encode(data).decode('utf-8').rstrip('=')
+    @app_commands.command(name="report", description="Submits an Ogre issue securely via your GitHub App profile")
+    @app_commands.describe(title="Short summary of the bug", details="Deep explanation or reproduction steps")
+    async def report_issue(self, interaction: discord.Interaction, title: str, details: str):
+        # Acknowledge the slash command immediately to stop Discord menu timeouts
+        await interaction.response.defer(ephemeral=True) 
 
-    def _generate_jwt_native(self) -> str:
-        """Assembles and signs a JWT manually using cryptography to prevent thread blocking hangs."""
-        app_id = os.getenv("GH_APP_ID")
-        private_key_text = os.getenv("GH_PRIVATE_KEY")
-        
-        if not app_id or not private_key_text:
-            return None
+        # Pull the App-scoped token from your secure Railway dashboard panel
+        token = os.getenv("GITHUB_TOKEN")
+        if not token:
+            await interaction.followup.send("❌ **Configuration Error:** GITHUB_TOKEN is missing on your host dashboard.")
+            return
 
-        # Clean line breaks from the Railway environment input variable
-        private_key_text = private_key_text.replace("\\n", "\n").strip()
-
-        # Step 1: Standard JWT Headers and Claims
-        import json
-        header = json.dumps({"alg": "RS256", "typ": "JWT"}).encode('utf-8')
-        payload = json.dumps({
-            "iat": int(time.time()) - 60,
-            "exp": int(time.time()) + (10 * 60), # 10 minute life window
-            "iss": int(app_id)
-        }).encode('utf-8')
-
-        segments = [self._base64url_encode(header), self._base64url_encode(payload)]
-        signing_input = ".".join(segments).encode('utf-8')
-
-        try:
-            # Step 2: Load the private key using the cryptography primitive core
-            private_key = serialization.load_pem_private_key(
-                private_key_text.encode('utf-8'),
-                password=None
-            )
-            # Step 3: Cryptographically sign the header payload segments
-            signature = private_key.sign(
-                signing_input,
-                padding.PKCS1v15(),
-                hashes.SHA256()
-            )
-            segments.append(self._base64url_encode(signature))
-            return ".".join(segments)
-        except Exception as e:
-            print(f"[Crypto Generation Error]: Failed to sign key. Details: {e}")
-            return None
-
-    async def _get_installation_token(self, session):
-        """Asynchronously requests a short-lived write token for our repository application."""
-        app_jwt = self._generate_jwt_native()
-        installation_id = os.getenv("GH_INSTALLATION_ID")
-        
-        if not app_jwt or not installation_id:
-            return None
-
-        url = f"{self.base_url}/app/installations/{installation_id}/access_tokens"
+        # Structure headers strictly using official GitHub App REST standards
         headers = {
-            "Authorization": f"Bearer {app_jwt}",
+            "Authorization": f"Bearer {token.strip()}",
             "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
             "User-Agent": "Discord-Issue-Report-Bot"
         }
 
-        async with session.post(url, headers=headers) as response:
-            if response.status == 201:
-                data = await response.json()
-                return data.get("token")
-            else:
-                err_text = await response.text()
-                print(f"[App Access Token Error] Status: {response.status} - {err_text}")
-                return None
+        # Format the markdown text block for the tracking ticket layout
+        issue_body = (
+            f"### Discord User Bug Report\n"
+            f"**Submitted By:** {interaction.user} (ID: {interaction.user.id})\n"
+            f"**Server Origin:** {interaction.guild.name if interaction.guild else 'Direct Message'}\n\n"
+            f"### Description / Details\n"
+            f"{details.strip()}\n\n"
+            f"*Generated automatically via the secure Discord `/report` command.*"
+        )
 
-    @app_commands.command(name="report", description="Submits an Ogre issue via your clean GitHub App identity")
-    @app_commands.describe(title="Bug summary", details="Reproduction steps")
-    async def report_issue(self, interaction: discord.Interaction, title: str, details: str):
-        await interaction.response.defer(ephemeral=True)
+        data = {
+            "title": f"[Ogre Bug] {title.strip()}",
+            "body": issue_body
+        }
 
+        # Safe, non-blocking asynchronous web client session loop
         async with aiohttp.ClientSession() as session:
-            # Generate the temporary authorization token
-            token = await self._get_installation_token(session)
-            if not token:
-                await interaction.with_item.send("❌ **Authorization Error:** The GitHub App handshake failed. Check Railway variables.")
-                return
-
-            headers = {
-                "Authorization": f"Bearer {token}",
-                "Accept": "application/vnd.github+json",
-                "Content-Type": "application/json",
-                "User-Agent": "Discord-Issue-Report-Bot"
-            }
-
-            issue_body = (
-                f"### Discord User Bug Report\n"
-                f"**Submitted By:** {interaction.user} (ID: {interaction.user.id})\n\n"
-                f"### Description / Details\n"
-                f"{details.strip()}\n\n"
-                f"*Generated securely via the Ogre GitHub App integration.*"
-            )
-
-            data = {
-                "title": f"[Ogre Bug] {title.strip()}",
-                "body": issue_body
-            }
-
             try:
-                async with session.post(self.issue_url, headers=headers, json=data) as response:
+                print(f"[REST API Dispatch]: Posting issue ticket directly to GitHub...")
+                
+                async with session.post(self.url, headers=headers, json=data) as response:
+                    # 201 means "Created" successfully in GitHub REST guidelines
                     if response.status == 201:
                         response_json = await response.json()
                         issue_url = response_json.get("html_url", "")
-                        await interaction.followup.send(f"✅ **Bug posted!** Track progress under the App profile here: {issue_url}")
+                        await interaction.followup.send(f"✅ **Bug tracked successfully!** View the live issue ticket here: {issue_url}")
                     else:
                         error_text = await response.text()
-                        await interaction.followup.send(f"❌ GitHub App Rejected Action: Status {response.status}")
-                        print(f"App Endpoint Error: {response.status} - {error_text}")
+                        await interaction.followup.send(f"❌ **GitHub Rejected Action:** Status Code {response.status}")
+                        print(f"GitHub Error Log: {response.status} - {error_text}")
+                        
             except Exception as e:
-                await interaction.followup.send("💥 A network failure blocked the app communication pipeline.")
-                print(f"Exception: {e}")
+                await interaction.followup.send("💥 **Network Error:** Could not complete the connection to the GitHub server host.")
+                print(f"Report System Network Failure Exception: {e}")
 
 async def setup(bot):
     await bot.add_cog(Report(bot))
