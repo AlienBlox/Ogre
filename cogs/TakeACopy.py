@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-class Utility(commands.Cog):
+class TakeCopy(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
@@ -11,4 +11,4 @@ class Utility(commands.Cog):
         await interaction.response.send_message(f'Take a copy of me at https://github.com/AlienBlox/Ogre! \n Install at https://discord.com/oauth2/authorize?client_id=1508446745816989796&permissions=8&integration_type=0&scope=bot+applications.commands')
 
 async def setup(bot):
-    await bot.add_cog(Utility(bot))
+    await bot.add_cog(TakeCopy(bot))
