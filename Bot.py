@@ -70,7 +70,7 @@ async def on_ready():
     # DEV GUILD INSTANT SYNC OVERRIDE
     try:
         # ⚠️ REPLACE this number with your exact copied Server ID number!
-        guild_target = discord.Object(id=123456789012345678) 
+        guild_target = discord.Object(id=1421919181556944948) 
         
         # Force duplicate our code's local command index directly into your test server
         bot.tree.copy_global_to(guild=guild_target)
