@@ -10,7 +10,7 @@ load_dotenv()
 intents = discord.Intents.default()
 intents.message_content = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="/", intents=intents)
 
 # THE IMMUNE CORE: These commands are skipped by the database check entirely
 # This forces them to register to Discord's UI without getting blocked by empty tables
