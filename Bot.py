@@ -81,20 +81,26 @@ async def on_ready():
 
 
 # DEVELOPER OVERRIDE: Classic text-prefix command to force a live tree compilation
+# DEVELOPER OVERRIDE: Clears out old ghost list cache and forces a fresh compilation
 @bot.command()
 @commands.is_owner() # Ensures ONLY you can trigger the synchronization loop
 async def sync(ctx: commands.Context):
-    """Forces an immediate synchronization update directly to the current server guild."""
-    msg = await ctx.send("⏳ *Contacting Discord API gates...*")
+    """Clears all cached guild commands and forces a clean synchronization update."""
+    msg = await ctx.send("⏳ *Wiping old command cache and contacting Discord API...*")
     try:
-        # Copy the global repository cogs into this server's direct memory channel
+        # 1. CRUCIAL CLEAR FIX: Wipes out the current local tree cache for this specific server
+        bot.tree.clear_commands(guild=ctx.object if hasattr(ctx, 'object') else ctx.guild)
+        
+        # 2. Re-copy the global repository cogs into this server's fresh memory channel
         bot.tree.copy_global_to(guild=ctx.guild)
-        # Push the synchronized layout to Discord's servers instantly
+        
+        # 3. Push the clean, synchronized layout to Discord's servers instantly
         synced = await bot.tree.sync(guild=ctx.guild)
         
-        await msg.edit(content=f"⚡ **Sync Complete!** Forced {len(synced)} slash commands live on this server.")
+        await msg.edit(content=f"⚡ **Cache Wiped & Sync Complete!** Forced {len(synced)} slash commands live on this server.")
     except Exception as e:
         await msg.edit(content=f"❌ **Sync Failure:** {e}")
+
 
 
 async def load_extensions():
