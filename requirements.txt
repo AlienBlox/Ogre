@@ -3,4 +3,4 @@ python-dotenv
 aiohttp
 pyJWT
 cryptography
-mysql-connector-python
+aiomysql
