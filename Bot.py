@@ -66,6 +66,8 @@ async def load_extensions():
             await bot.load_extension(f'cogs.{filename[:-3]}')
             print(f"Loaded extension: {filename}")
 
+    print(f"{os.listdir('./cogs').count()} extensions loaded.")
+
 async def main():
     async with bot:
         await load_extensions()
