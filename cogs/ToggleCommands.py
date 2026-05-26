@@ -25,7 +25,7 @@ class Management(commands.Cog):
     # Includes 'toggle_command' to completely eliminate any deadlock risks!
     CORE_COMMANDS = ["report", "ping", "takeme", "ogreinfo", "toggle_command"]
 
-    @app_commands.command(name="toggle_command", description="Enables or disables a specific bot command for this server")
+    @app_commands.command(name="togglecommand", description="Enables or disables a specific bot command for this server")
     @app_commands.describe(
         command_name="The exact name of the command you want to change (e.g., species, donkey)",
         status="Choose whether to enable or disable the command"
