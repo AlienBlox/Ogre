@@ -14,7 +14,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # THE IMMUNE CORE: These commands are skipped by the database check entirely
 # This forces them to register to Discord's UI without getting blocked by empty tables
-IMMUNE_COMMANDS = ["report", "ping", "takeme", "ogreinfo", "toggle_command"]
+IMMUNE_COMMANDS = ["report", "ping", "takeme", "ogreinfo", "togglecommand"]
 
 # THE INTERCEPTION CHECK: Runs automatically right before ANY slash command fires
 @bot.tree.interaction_check
