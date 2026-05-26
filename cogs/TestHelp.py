@@ -14,7 +14,7 @@ class Utility(commands.Cog):
         latency = round(self.bot.latency * 1000)
         
         # Respond directly to the slash interaction
-        await interaction.response.send_message(f'🏓 Pong! Response time: {latency}ms')
+        await interaction.response.send_message(f'🏓 Pong! Response time: {latency}ms \nV1.0')
 
 # This setup function registers the Cog with the main bot instance
 async def setup(bot):
