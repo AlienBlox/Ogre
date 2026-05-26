@@ -30,7 +30,8 @@ class Report(commands.Cog):
 
         headers = {
             "Authorization": f"Bearer {token.strip()}",
-            "Accept": "application/vnd.github+json", 
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
             "User-Agent": "Discord-Issue-Report-Bot"
         }
 
