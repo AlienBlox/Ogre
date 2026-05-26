@@ -17,10 +17,10 @@ class Report(commands.Cog):
             return None
 
         # Clean up full browser URLs if pasted into either variable field
-        if "github.com/" in owner:
-            owner = owner.split("github.com/")[-1]
-        if "github.com/" in repo:
-            repo = repo.split("github.com/")[-1]
+        if "://github.com" in owner:
+            owner = owner.split("://github.com")[-1]
+        if "://github.com" in repo:
+            repo = repo.split("://github.com")[-1]
 
         # Isolate the owner and repo text blocks by removing lingering slashes or spaces
         owner = owner.strip().strip("/")
@@ -28,10 +28,10 @@ class Report(commands.Cog):
         
         # If the user pasted the entire 'owner/repo' combined path into ONE variable
         if "/" in owner:
-            return f"https://github.com/{owner}/issues"
+            return f"https://api.://github.comrepos/{owner}/issues"
             
         # Standard configuration structure
-        return f"https://github.com/{owner}/{repo}/issues"
+        return f"https://api.://github.comrepos/{owner}/{repo}/issues"
 
     @app_commands.command(name="report", description="Submits an Ogre issue directly to the GitHub Issues tracker")
     @app_commands.describe(
@@ -71,10 +71,10 @@ class Report(commands.Cog):
             f"*Generated automatically via the Discord `/report` command.*"
         )
 
+        # FIX: Removed the "labels" field entirely to prevent 422 errors due to unrecognized tags
         payload = {
             "title": f"[Ogre Bug] {title.strip()}",
-            "body": issue_body,
-            "labels": ["bug", "discord-report"]
+            "body": issue_body
         }
 
         # Safe asynchronous network query block
