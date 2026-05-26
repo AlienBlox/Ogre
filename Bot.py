@@ -10,7 +10,7 @@ load_dotenv()
 intents = discord.Intents.default()
 intents.message_content = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="/", intents=intents)
 
 # THE INTERCEPTION CHECK: Runs automatically right before ANY slash command fires
 @bot.tree.interaction_check
