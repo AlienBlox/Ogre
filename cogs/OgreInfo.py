@@ -7,7 +7,7 @@ from discord.ext import commands
 class Info(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        # Track the exact moment the cog initializes to calculate uptime
+        # Track initialization timestamp
         self.start_time = time.time()
 
     @app_commands.command(name="info", description="Displays system information and statistics about the bot")
@@ -15,51 +15,62 @@ class Info(commands.Cog):
         """Generates a beautifully formatted server card with live bot statistics."""
         await interaction.response.defer()
 
-        # 1. Calculate Live Uptime
-        current_time = time.time()
-        uptime_seconds = int(current_time - self.start_time)
-        
-        # Format seconds into days, hours, minutes
-        days = uptime_seconds // 86400
-        hours = (uptime_seconds % 86400) // 3600
-        minutes = (uptime_seconds % 3600) // 60
-        uptime_string = f"🟢 {days}d {hours}h {minutes}m"
+        try:
+            # 1. Calculate Live Uptime safely
+            current_time = time.time()
+            uptime_seconds = int(current_time - self.start_time)
+            
+            days = uptime_seconds // 86400
+            hours = (uptime_seconds % 86400) // 3600
+            minutes = (uptime_seconds % 3600) // 60
+            uptime_string = f"🟢 {days}d {hours}h {minutes}m"
 
-        # 2. Gather Server Metrics
-        total_servers = len(self.bot.guilds)
-        # Sum up all members across all connected servers
-        total_users = sum(guild.member_count for guild in self.bot.guilds if guild.member_count)
-        latency = round(self.bot.latency * 1000)
+            # 2. Gather Server Metrics with concrete numerical fallbacks
+            total_servers = len(self.bot.guilds)
+            
+            # FIX: Explicit check ensures no NoneType fields leak into the sum tracker
+            total_users = 0
+            for guild in self.bot.guilds:
+                if guild.member_count is not None:
+                    total_users += guild.member_count
 
-        # 3. Create the Presentation Embed
-        embed = discord.Embed(
-            title=f"🤖 {self.bot.user.name} - Bot Profile",
-            description="An open-source, cloud-hosted community utility bot.",
-            color=discord.Color.teal()
-        )
+            latency = round(self.bot.latency * 1000) if self.bot.latency else 0
 
-        # Set the bot's avatar as the large side thumbnail if it exists
-        if self.bot.user.avatar:
-            embed.set_thumbnail(url=self.bot.user.avatar.url)
+            # 3. Create the Presentation Embed
+            embed = discord.Embed(
+                title=f"🤖 {self.bot.user.name} - Bot Profile",
+                description="An open-source, cloud-hosted community utility bot.",
+                color=discord.Color.teal()
+            )
 
-        # 4. Organize Information Fields into a Grid Structure
-        embed.add_field(name="📊 Statistics", value=f"**Servers:** {total_servers}\n**Users:** {total_users}", inline=True)
-        embed.add_field(name="⚙️ System Performance", value=f"**Latency:** {latency}ms\n**Uptime:** {uptime_string}", inline=True)
-        
-        # Add tech stack data fields
-        embed.add_field(
-            name="🛠️ Tech Stack", 
-            value=f"**Library:** discord.py v{discord.__version__}\n**Language:** Python {platform.python_version()}\n**Host:** Railway Cloud", 
-            inline=False
-        )
+            if self.bot.user.avatar:
+                embed.set_thumbnail(url=self.bot.user.avatar.url)
 
-        # 5. Add Interactive Buttons/Links (Optional)
-        view = discord.ui.View()
-        # You can add a button that links straight to your open-source GitHub repo
-        view.add_item(discord.ui.Button(label="View GitHub Repository", url="https://github.com/AlienBlox/Ogre", style=discord.ButtonStyle.link))
+            # 4. Organize Information Fields
+            embed.add_field(name="📊 Statistics", value=f"**Servers:** {total_servers}\n**Users:** {total_users}", inline=True)
+            embed.add_field(name="⚙️ System Performance", value=f"**Latency:** {latency}ms\n**Uptime:** {uptime_string}", inline=True)
+            
+            embed.add_field(
+                name="🛠️ Tech Stack", 
+                value=f"**Library:** discord.py v{discord.__version__}\n**Language:** Python {platform.python_version()}\n**Host:** Railway Cloud", 
+                inline=False
+            )
 
-        # Send the final response card
-        await interaction.followup.send(embed=embed, view=view)
+            # 5. Add Interactive Buttons
+            view = discord.ui.View()
+            view.add_item(discord.ui.Button(
+                label="View GitHub Repository", 
+                url="https://github.com/AlienBlox/Ogre", 
+                style=discord.ButtonStyle.link
+            ))
+
+            # Send response card
+            await interaction.followup.send(embed=embed, view=view)
+            
+        except Exception as e:
+            # Catch block guarantees the bot process won't crash even if computation fails
+            await interaction.followup.send("💥 An internal display error occurred.")
+            print(f"Info Cog Runtime Error: {e}")
 
 async def setup(bot):
     await bot.add_cog(Info(bot))
