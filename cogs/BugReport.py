@@ -8,7 +8,7 @@ class Report(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         # Copilot's exact REST API URL structure
-        self.url = "https://github.com"
+        self.url = "https://api.github.com/repos/AlienBlox/Ogre/issues"
 
     @app_commands.command(name="report", description="Submits an Ogre issue directly to the GitHub Issues tracker")
     @app_commands.describe(title="Short summary", details="Deep details/reproduction")
