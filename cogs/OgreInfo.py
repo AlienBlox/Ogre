@@ -10,8 +10,8 @@ class Info(commands.Cog):
         # Track initialization timestamp
         self.start_time = time.time()
 
-    @app_commands.command(name="info", description="Displays system information and statistics about the bot")
-    async def bot_info(self, interaction: discord.Interaction):
+    @app_commands.command(name="ogreinfo", description="Displays system information and statistics about the bot")
+    async def ogre_info(self, interaction: discord.Interaction):
         """Generates a beautifully formatted server card with live bot statistics."""
         await interaction.response.defer()
 
