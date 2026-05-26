@@ -1,102 +1,95 @@
 import os
-import mysql.connector
+import asyncio
+import aiomysql
 import discord
-from discord import app_commands
 from discord.ext import commands
+from dotenv import load_dotenv
 
-class Management(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-        self._init_db()
+load_dotenv()
 
-    def _init_db(self):
-        """Connects to MySQL and initializes the command toggles configuration table."""
-        conn = mysql.connector.connect(
+intents = discord.Intents.default()
+intents.message_content = True
+
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+IMMUNE_COMMANDS = ["report", "ping", "takecopy", "ogreinfo", "toggle_command"]
+
+# THE INTERCEPTION CHECK: Runs automatically right before ANY slash command fires
+@bot.tree.interaction_check
+async def global_command_filter(interaction: discord.Interaction) -> bool:
+    if not interaction.guild_id:
+        return True
+        
+    command_name = interaction.command.name.lower().strip()
+    if command_name in IMMUNE_COMMANDS:
+        return True
+        
+    guild_id = str(interaction.guild_id)
+    
+    try:
+        # ASYNC CONNECT: Non-blocking cloud cluster connection pool channel
+        conn = await aiomysql.connect(
             host=os.getenv("MYSQLHOST"),
             user=os.getenv("MYSQLUSER"),
             password=os.getenv("MYSQLPASSWORD"),
-            database=os.getenv("MYSQLDATABASE"),
             port=int(os.getenv("MYSQLPORT", 3306))
         )
-        cursor = conn.cursor()
-        # Creates a matching schema layout for server overrides
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS command_toggles (
-                guild_id VARCHAR(50),
-                command_name VARCHAR(100),
-                is_disabled INT,
-                PRIMARY KEY (guild_id, command_name)
+        async with conn.cursor() as cursor:
+            # Safely establish database targets
+            await cursor.execute("CREATE DATABASE IF NOT EXISTS ogre_database")
+            await cursor.execute("USE ogre_database")
+            
+            # Execute database search asynchronously 
+            await cursor.execute(
+                "SELECT is_disabled FROM command_toggles WHERE guild_id = %s AND command_name = %s",
+                (guild_id, command_name)
             )
-        """)
-        conn.commit()
-        cursor.close()
+            result = await cursor.fetchone()
+            
         conn.close()
-
-    CORE_COMMANDS = ["report", "ping", "takecopy", "ogreinfo", "toggle_command"]
-
-    @app_commands.command(name="toggle_command", description="Enables or disables a specific bot command for this server")
-    @app_commands.describe(
-        command_name="The exact name of the command you want to change (e.g., species, donkey)",
-        status="Choose whether to enable or disable the command"
-    )
-    @app_commands.choices(status=[
-        app_commands.Choice(name="Enable", value="enable"),
-        app_commands.Choice(name="Disable", value="disable")
-    ])
-    @app_commands.checks.has_permissions(administrator=True)
-    async def toggle_command(self, interaction: discord.Interaction, command_name: str, status: app_commands.Choice[str]):
-        await interaction.response.defer(ephemeral=True)
         
-        clean_name = command_name.strip().lower()
-        guild_id = str(interaction.guild_id)
-
-        if clean_name in self.CORE_COMMANDS:
-            await interaction.followup.send(
-                f"❌ **Action Denied:** The command `{clean_name}` is a core system service and cannot be disabled."
-            )
-            return
-
-        all_commands = [cmd.name for cmd in self.bot.tree.get_commands()]
-        if clean_name not in all_commands:
-            await interaction.followup.send(
-                f"❌ **Invalid Target:** The command `{clean_name}` does not exist. Loaded choices: {', '.join(all_commands)}"
-            )
-            return
-
-        is_disabled = 1 if status.value == "disable" else 0
-
-        # Run connection pipeline to write database rows
-        conn = mysql.connector.connect(
-            host=os.getenv("MYSQLHOST"),
-            user=os.getenv("MYSQLUSER"),
-            password=os.getenv("MYSQLPASSWORD"),
-            database=os.getenv("MYSQLDATABASE"),
-            port=int(os.getenv("MYSQLPORT", 3306))
-        )
-        cursor = conn.cursor()
-        
-        # MySQL replacement syntax layout for upsert operations
-        cursor.execute("""
-            INSERT INTO command_toggles (guild_id, command_name, is_disabled)
-            VALUES (%s, %s, %s)
-            ON DUPLICATE KEY UPDATE is_disabled = VALUES(is_disabled)
-        """, (guild_id, clean_name, is_disabled))
-        
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-        message = f"🚫 **Disabled** `{clean_name}`" if is_disabled else f"✅ **Enabled** `{clean_name}`"
-        await interaction.followup.send(f"{message} successfully for this server.")
-
-    @toggle_command.error
-    async def toggle_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
-        if isinstance(error, app_commands.errors.MissingPermissions):
+        # Verify result output
+        if result and result[0] == 1:
             await interaction.response.send_message(
-                "❌ **Access Denied:** You must have **Administrator** permissions to toggle commands on this server.",
+                "❌ This command has been disabled by this server's administrators.",
                 ephemeral=True
             )
+            return False 
+            
+    except Exception as e:
+        print(f"[Async MySQL Interceptor Error]: {e}")
+        return True # Fallback pass-through so the bot doesn't hang on errors
+        
+    return True
 
-async def setup(bot):
-    await bot.add_cog(Management(bot))
+@bot.event
+async def on_ready():
+    print(f'Successfully logged in as {bot.user}')
+    await bot.change_presence(status=discord.Status.online, activity=discord.Game(name="Bot active"), afk=False)
 
+@bot.command()
+@commands.is_owner()
+async def sync(ctx: commands.Context):
+    """Clears all cached guild commands and forces a clean synchronization update."""
+    msg = await ctx.send("⏳ *Wiping old command cache and contacting Discord API...*")
+    try:
+        bot.tree.clear_commands(guild=ctx.guild)
+        bot.tree.copy_global_to(guild=ctx.guild)
+        synced = await bot.tree.sync(guild=ctx.guild)
+        await msg.edit(content=f"⚡ **Cache Wiped & Sync Complete!** Forced {len(synced)} slash commands live on this server.")
+    except Exception as e:
+        await msg.edit(content=f"❌ **Sync Failure:** {e}")
+
+async def load_extensions():
+    for filename in os.listdir('./cogs'):
+        if filename.endswith('.py'):
+            await bot.load_extension(f'cogs.{filename[:-3]}')
+            print(f"Loaded extension: {filename}")
+
+async def main():
+    async with bot:
+        await load_extensions()
+        await bot.start(os.getenv('DISCORD_TOKEN'))
+
+if __name__ == "__main__":
+    asyncio.run(main())
