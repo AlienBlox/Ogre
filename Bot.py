@@ -61,7 +61,6 @@ async def global_command_filter(interaction: discord.Interaction) -> bool:
 @bot.event
 async def on_ready():
     print(f'Successfully logged in as {bot.user}')
-    print(f'testing testing 123')
     await bot.change_presence(
         status=discord.Status.online,
         activity=discord.Game(name="Bot active"),
