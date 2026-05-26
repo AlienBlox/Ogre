@@ -25,9 +25,9 @@ class Report(commands.Cog):
         repo = repo.strip().strip("/")
         
         if "/" in owner:
-            return f"https://github.com{owner}/issues"
+            return f"https://github.com/{owner}/issues"
             
-        return f"https://github.com{owner}/{repo}/issues"
+        return f"https://github.com/{owner}/{repo}/issues"
 
     @app_commands.command(name="report", description="Submits an Ogre issue directly to the GitHub Issues tracker")
     @app_commands.describe(
