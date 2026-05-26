@@ -56,7 +56,7 @@ class Info(commands.Cog):
         # 5. Add Interactive Buttons/Links (Optional)
         view = discord.ui.View()
         # You can add a button that links straight to your open-source GitHub repo
-        view.add_item(discord.ui.Button(label="View GitHub Repository", url="https://github.com", style=discord.ButtonStyle.link))
+        view.add_item(discord.ui.Button(label="View GitHub Repository", url="https://github.com/AlienBlox/Ogre", style=discord.ButtonStyle.link))
 
         # Send the final response card
         await interaction.followup.send(embed=embed, view=view)
