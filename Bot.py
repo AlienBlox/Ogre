@@ -14,6 +14,12 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 @bot.event
 async def on_ready():
     print(f'Successfully logged in as {bot.user}')
+
+    await bot.change_presence(
+        status=discord.Status.online,
+        activity=discord.Game(name="Bot active")
+    )
+
     await bot.change_presence(activity=discord.Game(name="Bot active"))
     
     # CRUCIAL FOR SLASH COMMANDS: Syncs the commands to Discord globally
