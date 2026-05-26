@@ -9,6 +9,7 @@ class DiceRoll(commands.Cog):
 
     # Slash command for rolling a die
     @app_commands.command(name="roll", description="Rolls a die (Choose your own number of sides, 6 default.)")
+    @app_commands.describe(sides="Number of sides on the die")
     async def roll(self, interaction: discord.Interaction, sides: int = 6):
         # Calculate latency
         
