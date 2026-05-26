@@ -9,28 +9,29 @@ class Report(commands.Cog):
         self.bot = bot
         
     def get_api_url(self):
-        """Constructs the GitHub API endpoint, safely parsing full web URLs if pasted."""
+        """Safely cleans up repository variables and returns a valid GitHub API endpoint."""
         owner = os.getenv("GITHUB_OWNER")
         repo = os.getenv("GITHUB_REPO")
         
         if not owner or not repo:
             return None
 
-        # Clean up full browser links if accidentally pasted into Railway variables
-        if "github.com" in owner:
-            owner = owner.split("://github.com")[-1]
-        if "github.com" in repo:
-            repo = repo.split("://github.com")[-1]
+        # Clean up full browser URLs if pasted into either variable field
+        if "github.com/" in owner:
+            owner = owner.split("github.com/")[-1]
+        if "github.com/" in repo:
+            repo = repo.split("github.com/")[-1]
 
-        # Strip lingering spaces, slashes, or accidental subpages
+        # Isolate the owner and repo text blocks by removing lingering slashes or spaces
         owner = owner.strip().strip("/")
         repo = repo.strip().strip("/")
         
-        # Handle cases where the whole 'owner/repo' path was pasted into one variable
-        if "/" in owner and repo in owner:
-            return f"https://api.://github.comrepos/{owner}/issues"
-
-        return f"https://api.://github.comrepos/{owner}/{repo}/issues"
+        # If the user pasted the entire 'owner/repo' combined path into ONE variable
+        if "/" in owner:
+            return f"https://github.com/{owner}/issues"
+            
+        # Standard configuration structure
+        return f"https://github.com/{owner}/{repo}/issues"
 
     @app_commands.command(name="report", description="Submits an Ogre issue directly to the GitHub Issues tracker")
     @app_commands.describe(
