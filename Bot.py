@@ -19,44 +19,44 @@ IMMUNE_COMMANDS = ["report", "ping", "takeme", "ogreinfo", "toggle_command"]
 # THE INTERCEPTION CHECK: Runs automatically right before ANY slash command fires
 @bot.tree.interaction_check
 async def global_command_filter(interaction: discord.Interaction) -> bool:
-    # 1. Always pass Direct Messages or commands run outside a standard server channel
     if not interaction.guild_id:
         return True
         
-    command_name = interaction.command.name
+    # FORCE LOWERCASE: Enforce absolute lowercase on the incoming command name
+    command_name = interaction.command.name.lower().strip()
     
-    # 2. FIX: If the command is part of our system core, let it pass immediately!
+    # If the command is part of our immune system core, let it pass immediately
     if command_name in IMMUNE_COMMANDS:
         return True
         
     guild_id = str(interaction.guild_id)
     
     try:
-        # Open connection to local database file safely
-        conn = sqlite3.connect("bot_management.db")
-        cursor = conn.cursor()
-        
-        # Check if this specific server has disabled this specific command
-        cursor.execute(
-            "SELECT is_disabled FROM command_toggles WHERE guild_id = ? AND command_name = ?",
-            (guild_id, command_name)
-        )
-        result = cursor.fetchone()
-        conn.close()
-        
-        # If a row is found and the is_disabled flag is True (1)
-        if result and result[0] == 1:
-            await interaction.response.send_message(
-                "❌ This command has been disabled by this server's administrators.",
-                ephemeral=True
-            )
-            return False # Halts execution track completely!
+        # Open connection safely using a 'with' context manager
+        with sqlite3.connect("bot_management.db") as conn:
+            cursor = conn.cursor()
             
+            # Query the exact lowercase command name
+            cursor.execute(
+                "SELECT is_disabled FROM command_toggles WHERE guild_id = ? AND command_name = ?",
+                (guild_id, command_name)
+            )
+            result = cursor.fetchone()
+            
+            # Check if the result exists and is exactly equal to 1 (Disabled)
+            # result[0] extracts the integer from the data tuple safely
+            if result and result[0] == 1:
+                await interaction.response.send_message(
+                    "❌ This command has been disabled by this server's administrators.",
+                    ephemeral=True
+                )
+                return False # Stops the command from executing!
+                
     except Exception as e:
         print(f"[Database Interceptor Glitch]: {e}")
-        return True # Fallback pass-through if the table doesn't exist yet
+        return True # Fallback pass-through if the table has an error
         
-    return True # Passes through smoothly
+    return True # Passes through smoothly if not disabled
 
 @bot.event
 async def on_ready():
