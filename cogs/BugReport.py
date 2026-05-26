@@ -7,78 +7,50 @@ from discord.ext import commands
 class Report(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        # FIX: Hardcode your specific repository API link right here 
-        # This completely avoids all string-splitting or naming crashes!
-        self.github_url = "https://github.com/AlienBlox/Ogre/issues"
+        # Copilot's exact REST API URL structure
+        self.url = "https://github.com"
 
     @app_commands.command(name="report", description="Submits an Ogre issue directly to the GitHub Issues tracker")
-    @app_commands.describe(
-        title="A short summary of the issue",
-        details="Provide deep details or step-by-step reproduction"
-    )
+    @app_commands.describe(title="Short summary", details="Deep details/reproduction")
     async def report_issue(self, interaction: discord.Interaction, title: str, details: str):
-        """Asynchronously parses user feedback and securely uploads it to GitHub."""
+        # Acknowledge the interaction immediately to stop Discord timeouts
         await interaction.response.defer(ephemeral=True) 
 
         token = os.getenv("GITHUB_TOKEN")
         if not token:
-            await interaction.followup.send("❌ **Configuration Error:** GITHUB_TOKEN is missing on your host panel.")
+            await interaction.followup.send("❌ GITHUB_TOKEN is missing on your host panel.")
             return
 
-        clean_title = str(title).strip() if title else "Untitled Bug Report"
-        clean_details = str(details).strip() if details else "No description provided."
-
+        # Copilot's exact headers
         headers = {
             "Authorization": f"Bearer {token.strip()}",
             "Accept": "application/vnd.github+json",
-            "Content-Type": "application/json",
-            "User-Agent": "Discord-Issue-Report-Bot"
+            "User-Agent": "Discord-Issue-Report-Bot" # GitHub requires a User-Agent header
         }
 
-        issue_body = (
-            f"### Discord User Bug Report\n"
-            f"**Submitted By:** {interaction.user} (ID: {interaction.user.id})\n"
-            f"**Server Origin:** {interaction.guild.name if interaction.guild else 'Direct Message'}\n\n"
-            f"### Description / Details\n"
-            f"{clean_details}\n\n"
-            f"*Generated automatically via the Discord `/report` command.*"
-        )
-
-        payload = {
-            "title": f"[Ogre Bug] {clean_title}",
-            "body": issue_body
+        # Copilot's exact data structure mapped to user inputs
+        data = {
+            "title": f"[Ogre Bug] {title}",
+            "body": f"**Reported by {interaction.user}:**\n\n{details}",
         }
 
+        # The Asynchronous (Async) version of requests.post
         async with aiohttp.ClientSession() as session:
             try:
-                # Log verification print statement for your Railway logs
-                print(f"[Report Command Executing]: Targeting endpoint -> {self.github_url}")
-                
-                async with session.post(self.github_url, json=payload, headers=headers) as response:
+                async with session.post(self.url, headers=headers, json=data) as response:
+                    # 201 means "Created" successfully in GitHub's REST API
                     if response.status == 201:
-                        data = await response.json()
-                        issue_url = data.get("html_url", "")
-                        await interaction.followup.send(
-                            f"✅ **Issue successfully tracked!** Your report has been posted to our GitHub repository.\n"
-                            f"🔗 **Track progress here:** {issue_url}"
-                        )
-                    elif response.status == 422:
-                        error_json = await response.json()
-                        error_msg = error_json.get("message", "Validation Failed")
-                        await interaction.followup.send(f"⚠️ GitHub 422 Error: {error_msg}. Check your write token permissions.")
-                        print(f"❌ [GitHub 422 Rejection]: {error_json}")
-                    elif response.status == 401:
-                        await interaction.followup.send("⚠️ GitHub connection rejected: Invalid or expired GitHub token.")
-                    elif response.status == 404:
-                        await interaction.followup.send("⚠️ GitHub connection rejected: Repository tracker location not found.")
+                        response_json = await response.json()
+                        issue_url = response_json.get("html_url", "")
+                        await interaction.followup.send(f"✅ Bug posted! Track progress here: {issue_url}")
                     else:
                         error_text = await response.text()
-                        await interaction.followup.send(f"⚠️ Failed to connect to GitHub. Status Code: {response.status}")
-                        print(f"GitHub API Error: {response.status} - {error_text}")
+                        await interaction.followup.send(f"❌ GitHub API Error: {response.status}")
+                        print(f"Error: {response.status} - {error_text}")
                         
             except Exception as e:
-                await interaction.followup.send("💥 An internal network failure blocked this issue from submitting.")
-                print(f"Report Cog Network Failure Exception Details: {e}")
+                await interaction.followup.send("💥 Network failure connecting to GitHub.")
+                print(f"Exception: {e}")
 
 async def setup(bot):
     await bot.add_cog(Report(bot))
