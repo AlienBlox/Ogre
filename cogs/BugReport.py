@@ -8,7 +8,7 @@ class Report(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         # Hardcoded endpoint targeting your specific Ogre repository
-        self.url = "https://github.com"
+        self.url = "https://api.github.com/repos/AlienBlox/Ogre/issues"
 
     @app_commands.command(name="report", description="Submits an Ogre issue securely via your GitHub App profile")
     @app_commands.describe(title="Short summary of the bug", details="Deep explanation or reproduction steps")
