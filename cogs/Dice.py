@@ -15,7 +15,7 @@ class DiceRoll(commands.Cog):
         randomNum = random.randint(1, sides)  # Simulate rolling a die with the specified number of sides
 
         # Respond directly to the slash interaction
-        await interaction.response.send_message(f'Rolled: ')
+        await interaction.response.send_message(f'Rolled: {randomNum}')
 
 # This setup function registers the Cog with the main bot instance
 async def setup(bot):
