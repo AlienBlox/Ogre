@@ -9,7 +9,7 @@ namespace OgreBotSharp.Commands.Fun
 
         // Command Trigger: /protein 4hhb (or prefix based on your bot setup)
         [SlashCommand("protein", "Fetch and download a protein structure file from the RCSB PDB.")]
-        public async Task GetProteinAsync(InteractionContext context, string pdbId)
+        public async Task GetProteinAsync(InteractionContext context, [Option("pdbid", "The 4-character PDB ID of the protein to fetch")] string pdbId)
         {
             // 1. Sanitize user input
             if (string.IsNullOrWhiteSpace(pdbId) || pdbId.Length != 4)
@@ -20,7 +20,7 @@ namespace OgreBotSharp.Commands.Fun
             }
 
             string cleanId = pdbId.Trim().ToLower();
-            string url = $"https://rcsb.org/download/{cleanId}.cif.gz";
+            string url = $"https://files.rcsb.org/download/{cleanId}.cif.gz";
 
             // 2. Trigger typing indicator to show the bot is active
             await context.Channel.TriggerTypingAsync();
