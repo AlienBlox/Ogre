@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using System.Globalization;
 using DSharpPlus;
 using DSharpPlus.Entities;
 using DSharpPlus.SlashCommands;
@@ -16,7 +17,9 @@ public class ChemistryCommands : ApplicationCommandModule
 
         try
         {
-            string encodedName = Uri.EscapeDataString(compoundName);
+            // Lowercase and trim the input to ensure predictable API query results
+            string cleanInput = compoundName.Trim().ToLower();
+            string encodedName = Uri.EscapeDataString(cleanInput);
 
             // 1. Resolve Compound Name to unique PubChem CID
             string cidUrl = $"https://nih.gov{encodedName}/cids/JSON";
@@ -39,8 +42,8 @@ public class ChemistryCommands : ApplicationCommandModule
                           .First()
                           .GetInt32();
 
-            // 2. Fetch structural Data File string content (.SDF format)
-            string molUrl = $"https://nih.gov{cid}/SDF";
+            // 2. Fetch structural Data File string content (.SDF/.MOL format)
+            string molUrl = $"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/SDF";
             var molResponse = await HttpClient.GetAsync(molUrl);
 
             if (!molResponse.IsSuccessStatusCode)
@@ -55,19 +58,20 @@ public class ChemistryCommands : ApplicationCommandModule
             // 3. Prepare the plain-text in-memory data attachment stream
             byte[] fileBytes = System.Text.Encoding.UTF8.GetBytes(molContent);
             using var memoryStream = new MemoryStream(fileBytes);
-            string safeFileName = compoundName.Replace(" ", "_").ToLower();
+            string safeFileName = cleanInput.Replace(" ", "_");
 
-            // --- 4. BUILD THE RICH EMBED + PNG GENERATOR URL ---
-            // PubChem exposes a direct image engine based on CID mappings
-            string imageUrl = $"https://nih.gov{cid}/PNG";
+            // --- 4. SAFE STRING CAPITIALIZATION FIX ---
+            // Uses TextInfo to prevent character slicing array indexing crashes
+            string formattedTitle = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(cleanInput);
+            string imageUrl = $"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/PNG";
 
             var embed = new DiscordEmbedBuilder()
-                .WithTitle($"🧪 PubChem Chemical Record: {char.ToUpper(compoundName[0]) + compoundName[1..]}")
+                .WithTitle($"🧪 PubChem Chemical Record: {formattedTitle}")
                 .WithUrl($"https://nih.gov{cid}")
-                .WithColor(new DiscordColor("#0071BC")) // PubChem brand signature blue hue
+                .WithColor(new DiscordColor("#0071BC")) // PubChem signature blue
                 .AddField("Compound ID (CID)", $"`{cid}`", true)
                 .AddField("Format Type", "`.mol` (2D Spatial Mapping)", true)
-                .WithImageUrl(imageUrl) // Embeds the structural schematic image
+                .WithImageUrl(imageUrl)
                 .WithFooter("Data sourced dynamically via PubChem PUG REST API Framework");
 
             // 5. Build and transmit the combined message payload layout
@@ -79,9 +83,10 @@ public class ChemistryCommands : ApplicationCommandModule
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] PubChem handler error: {ex.Message}");
+            // Logs the specific crash point to your console/Railway dashboard for easy debugging
+            Console.WriteLine($"[CRITICAL ERROR] PubChem Engine Exception: {ex.Message}\n{ex.StackTrace}");
             await ctx.EditResponseAsync(new DiscordWebhookBuilder()
-                .WithContent("❌ **System Failure:** An error occurred while parsing the PubChem data structure."));
+                .WithContent("❌ **System Failure:** An error occurred while parsing the PubChem data structure. Check internal console runtime logs."));
         }
     }
 }
