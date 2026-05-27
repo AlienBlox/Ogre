@@ -20,6 +20,12 @@ namespace OgreBotSharp
                     Intents = DiscordIntents.AllUnprivileged
                 });
 
+                discord.Ready += (sender, args) =>
+                {
+                    Console.WriteLine($"[SUCCESS] {sender.CurrentUser.Username} is fully initialized, connected, and online!");
+                    return Task.CompletedTask;
+                };
+
                 var slash = discord.UseSlashCommands();
 
                 // --- DYNAMIC REGISTRATION SYSTEM ---
