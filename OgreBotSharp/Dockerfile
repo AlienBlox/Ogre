@@ -1,5 +1,5 @@
 # Step 1: Build the application using the .NET SDK image
-FROM ://microsoft.com AS build-env
+FROM https://microsoft.com AS build-env
 WORKDIR /app
 
 # Copy the project file and restore dependencies
@@ -11,9 +11,9 @@ COPY . ./
 RUN dotnet publish -c Release -o out
 
 # Step 2: Build the runtime container using the lightweight runtime image
-FROM ://microsoft.com
+FROM https://microsoft.com
 WORKDIR /app
 COPY --from=build-env /app/out .
 
 # Execute the application assembly
-ENTRYPOINT ["dotnet", "Bot.dll"]
+ENTRYPOINT ["dotnet", "OgreBotSharp.dll"]
