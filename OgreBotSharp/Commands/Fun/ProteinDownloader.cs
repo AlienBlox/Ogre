@@ -19,6 +19,9 @@ namespace OgreBotSharp.Commands.Fun
                 return;
             }
 
+            await context.DeferAsync();
+
+
             string cleanId = pdbId.Trim().ToLower();
             string url = $"https://files.rcsb.org/download/{cleanId}.cif.gz";
 
