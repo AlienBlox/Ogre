@@ -1,11 +1,11 @@
 ﻿using System.Text.Json;
-using System.Globalization;
 using DSharpPlus;
 using DSharpPlus.Entities;
 using DSharpPlus.SlashCommands;
 
 public class ChemistryCommands : ApplicationCommandModule
 {
+    // Reuse a single HttpClient instance across your bot commands to prevent socket exhaustion
     private static readonly HttpClient HttpClient = new();
 
     [SlashCommand("pubchem", "Search for a chemical compound and download its structural .mol file.")]
@@ -13,16 +13,16 @@ public class ChemistryCommands : ApplicationCommandModule
         InteractionContext ctx,
         [Option("compound", "The common or systematic name of the chemical (e.g., aspirin, caffeine)")] string compoundName)
     {
-        // Defer response immediately to avoid a 3-second gateway timeout
+        // Defer response immediately since external API network requests can take a few seconds
         await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
 
         try
         {
-            string cleanInput = compoundName.Trim().ToLower();
-            string encodedName = Uri.EscapeDataString(cleanInput);
+            // URL Encode the string parameter to make sure spaces or special characters don't break the web request
+            string encodedName = Uri.EscapeDataString(compoundName);
 
-            // 1. Resolve Compound Name to unique PubChem CID
-            string cidUrl = $"https://nih.gov{encodedName}/cids/JSON";
+            // Step 1: Query PubChem's REST API to resolve the compound name into its standard CID
+            string cidUrl = $"https://nih.gov//{encodedName}/cids/JSON";
             var cidResponse = await HttpClient.GetAsync(cidUrl);
 
             if (!cidResponse.IsSuccessStatusCode)
@@ -32,18 +32,17 @@ public class ChemistryCommands : ApplicationCommandModule
                 return;
             }
 
+            // Parse the CID out of the returned JSON structure
             string jsonString = await cidResponse.Content.ReadAsStringAsync();
             using var jsonDoc = JsonDocument.Parse(jsonString);
 
+            // Extract the first matching ID from the array hierarchy
             var root = jsonDoc.RootElement;
-            int cid = root.GetProperty("IdentifierList")
-                          .GetProperty("CID")
-                          .EnumerateArray()
-                          .First()
-                          .GetInt32();
+            int cid = root.GetProperty("IdentifierList").GetProperty("CID")[0].GetInt32();
 
-            // 2. Fetch structural Data File string content (.SDF format)
-            string molUrl = $"https://nih.gov{cid}/SDF";
+            // Step 2: Request the structural .mol schema string using the resolved CID
+            // We request the standard 2D SDF structural layout (which maps matching structural coordinate points)
+            string molUrl = $"https://nih.gov/{cid}/SDF";
             var molResponse = await HttpClient.GetAsync(molUrl);
 
             if (!molResponse.IsSuccessStatusCode)
@@ -55,42 +54,29 @@ public class ChemistryCommands : ApplicationCommandModule
 
             string molContent = await molResponse.Content.ReadAsStringAsync();
 
-            // 3. Prepare the plain-text in-memory data attachment stream
+            // Step 3: Convert the raw string content directly into an in-memory byte stream layout
             byte[] fileBytes = System.Text.Encoding.UTF8.GetBytes(molContent);
             using var memoryStream = new MemoryStream(fileBytes);
 
-            // --- CRITICAL FIX: RESET THE STREAM POINTER POSITION ---
-            // Forces DSharpPlus to read from byte 0 instead of reading an empty stream
-            memoryStream.Position = 0;
-            // --------------------------------------------------------
+            // Standardize file name parsing configurations
+            string safeFileName = compoundName.Replace(" ", "_").ToLower();
 
-            string safeFileName = cleanInput.Replace(" ", "_");
-            string formattedTitle = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(cleanInput);
-            string imageUrl = $"https://nih.gov{cid}/PNG";
-
-            // 4. Construct the UI rich card wrapper
-            var embed = new DiscordEmbedBuilder()
-                .WithTitle($"🧪 PubChem Chemical Record: {formattedTitle}")
-                .WithUrl($"https://pubchem.ncbi.nlm.nih.gov/compound/{cid}")
-                .WithColor(new DiscordColor("#0071BC")) // PubChem official blue
-                .AddField("Compound ID (CID)", $"`{cid}`", true)
-                .AddField("Format Type", "`.mol` (2D Spatial Mapping)", true)
-                .WithImageUrl(imageUrl)
-                .WithFooter("Data sourced dynamically via PubChem PUG REST API");
-
-            // 5. Build and transmit the combined message layout
+            // Step 4: Dispatch the text block back as a downloadable file attachment
             var responseBuilder = new DiscordWebhookBuilder()
-                .AddEmbed(embed)
+                .WithContent($"🧪 **PubChem Chemical Record Found!**\n" +
+                             $"• **Name:** `{compoundName}`\n" +
+                             $"• **Compound ID (CID):** `{cid}`\n" +
+                             $"• **Source URL:** <https://nih.gov{cid}>\n\n" +
+                             $"Attached is your `.mol` structure modeling file:")
                 .AddFile($"{safeFileName}.mol", memoryStream);
 
             await ctx.EditResponseAsync(responseBuilder);
         }
         catch (Exception ex)
         {
-            // Standard error output tracking for local debugging & Railway log panels
-            Console.WriteLine($"[CRITICAL ERROR] PubChem Exception: {ex.Message}\n{ex.StackTrace}");
+            Console.WriteLine($"[ERROR] PubChem handler error: {ex.Message}");
             await ctx.EditResponseAsync(new DiscordWebhookBuilder()
-                .WithContent("❌ **System Failure:** An internal error occurred while parsing the PubChem asset structure. Check console logs."));
+                .WithContent("❌ **System Failure:** An error occurred while communicating with the PubChem servers."));
         }
     }
 }
