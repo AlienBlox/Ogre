@@ -2,7 +2,7 @@
 using DSharpPlus.Entities;
 using DSharpPlus.SlashCommands;
 
-namespace OgreBotSharp.Commands.CoreCommands
+namespace OgreBotSharp.Commands.Fun
 {
     public class Dice : ApplicationCommandModule
     {
