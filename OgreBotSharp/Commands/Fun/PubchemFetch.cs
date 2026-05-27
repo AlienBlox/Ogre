@@ -18,8 +18,8 @@ public class ChemistryCommands : ApplicationCommandModule
         {
             string encodedName = Uri.EscapeDataString(compoundName);
 
-            // 1. Query PubChem's REST API to resolve the compound name into its standard CID
-            string cidUrl = $"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{encodedName}/cids/JSON";
+            // 1. Resolve Compound Name to unique PubChem CID
+            string cidUrl = $"https://nih.gov{encodedName}/cids/JSON";
             var cidResponse = await HttpClient.GetAsync(cidUrl);
 
             if (!cidResponse.IsSuccessStatusCode)
@@ -32,19 +32,15 @@ public class ChemistryCommands : ApplicationCommandModule
             string jsonString = await cidResponse.Content.ReadAsStringAsync();
             using var jsonDoc = JsonDocument.Parse(jsonString);
 
-            // --- FIXED JSON EXTRACTION PATH ---
-            // PubChem returns "CID" as a JSON Array (e.g., "CID": [2519]). 
-            // We use .EnumerateArray().First().GetInt32() to cleanly extract index 0.
             var root = jsonDoc.RootElement;
             int cid = root.GetProperty("IdentifierList")
                           .GetProperty("CID")
                           .EnumerateArray()
                           .First()
                           .GetInt32();
-            // ----------------------------------
 
-            // 2. Request the structural .mol schema string using the resolved CID
-            string molUrl = $"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/SDF";
+            // 2. Fetch structural Data File string content (.SDF format)
+            string molUrl = $"https://nih.gov{cid}/SDF";
             var molResponse = await HttpClient.GetAsync(molUrl);
 
             if (!molResponse.IsSuccessStatusCode)
@@ -56,19 +52,27 @@ public class ChemistryCommands : ApplicationCommandModule
 
             string molContent = await molResponse.Content.ReadAsStringAsync();
 
-            // 3. Convert the raw string content directly into an in-memory byte stream layout
+            // 3. Prepare the plain-text in-memory data attachment stream
             byte[] fileBytes = System.Text.Encoding.UTF8.GetBytes(molContent);
             using var memoryStream = new MemoryStream(fileBytes);
-
             string safeFileName = compoundName.Replace(" ", "_").ToLower();
 
-            // 4. Dispatch the text block back as a downloadable file attachment
+            // --- 4. BUILD THE RICH EMBED + PNG GENERATOR URL ---
+            // PubChem exposes a direct image engine based on CID mappings
+            string imageUrl = $"https://nih.gov{cid}/PNG";
+
+            var embed = new DiscordEmbedBuilder()
+                .WithTitle($"🧪 PubChem Chemical Record: {char.ToUpper(compoundName[0]) + compoundName[1..]}")
+                .WithUrl($"https://nih.gov{cid}")
+                .WithColor(new DiscordColor("#0071BC")) // PubChem brand signature blue hue
+                .AddField("Compound ID (CID)", $"`{cid}`", true)
+                .AddField("Format Type", "`.mol` (2D Spatial Mapping)", true)
+                .WithImageUrl(imageUrl) // Embeds the structural schematic image
+                .WithFooter("Data sourced dynamically via PubChem PUG REST API Framework");
+
+            // 5. Build and transmit the combined message payload layout
             var responseBuilder = new DiscordWebhookBuilder()
-                .WithContent($"🧪 **PubChem Chemical Record Found!**\n" +
-                             $"• **Name:** `{compoundName}`\n" +
-                             $"• **Compound ID (CID):** `{cid}`\n" +
-                             $"• **Source URL:** <https://pubchem.ncbi.nlm.nih.gov/compound/{cid}>\n\n" +
-                             $"Attached is your `.mol` structure modeling file:")
+                .AddEmbed(embed)
                 .AddFile($"{safeFileName}.mol", memoryStream);
 
             await ctx.EditResponseAsync(responseBuilder);
