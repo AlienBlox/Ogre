@@ -52,6 +52,8 @@ namespace OgreBotSharp.Commands.Fun
                                      $"Open this inside viewing suites like PyMOL or ChimeraX.")
                         .AddFile(fileName, apiStream);
 
+                    Console.WriteLine("Protein Length: " + apiStream.Length);
+
                     // Send the constructed package to the active channel
                     await context.EditResponseAsync(new DiscordWebhookBuilder()
                         .WithContent(messageBuilder.Content));
