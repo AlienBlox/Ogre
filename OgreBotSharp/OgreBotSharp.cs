@@ -7,6 +7,33 @@ namespace OgreBotSharp
     public static class BotDiagnostics
     {
         public static readonly DateTime StartTime = DateTime.UtcNow;
+
+        public static Version Version { get; private set; } = new Version(0, 0, 0, 1);
+
+        internal async static Task GetVer()
+        {
+            HttpClient client = new HttpClient();
+
+            string changelogUrl = "https://raw.githubusercontent.com/AlienBlox/Ogre/main/Version.txt";
+
+            try
+            {
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("OgreBot/1.0");
+
+                string FileContents = await client.GetStringAsync(changelogUrl);
+
+#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
+                if (Version.TryParse(FileContents.Trim(), out Version latestVersion) && latestVersion != null)
+                {
+                    Version = latestVersion;
+                }
+#pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Failed to fetch versions: {ex.Message}");
+            }
+        }
     }
 
     /// <summary>

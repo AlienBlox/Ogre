@@ -26,7 +26,8 @@ namespace OgreBotSharp.Commands.CoreCommands
                                   $"**Uptime:** {uptime.Days}d {uptime.Hours}h {uptime.Minutes}m {uptime.Seconds}s\n" +
                                   $"**Servers On:** {ctx.Client.Guilds.Count}\n" +
                                   $"**Shards:** {ctx.Client.ShardCount}\n\n" +
-                                  $"*An open source discord bot made by AlienBlox and the Dragons!*";
+                                  $"*An open source discord bot made by AlienBlox and the Dragons!*" +
+                                  $"**Current Ver:** {BotDiagnostics.Version}";
 
             await ctx.CreateResponseAsync(
                 InteractionResponseType.ChannelMessageWithSource,
