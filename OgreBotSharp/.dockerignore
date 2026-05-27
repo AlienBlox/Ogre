@@ -1,0 +1,22 @@
+# Source Control Systems
+.git/
+.gitignore
+
+# Build Output Directories
+bin/
+obj/
+
+# IDE and Project Settings
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Local Environment and Configuration Files
+appsettings.Development.json
+secrets.json
+.env
+
+# Docker Configuration Itself
+Dockerfile
+.dockerignore
