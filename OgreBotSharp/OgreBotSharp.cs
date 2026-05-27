@@ -4,6 +4,11 @@ using System.Reflection;
 
 namespace OgreBotSharp
 {
+    public static class BotDiagnostics
+    {
+        public static readonly DateTime StartTime = DateTime.UtcNow;
+    }
+
     /// <summary>
     /// The core of OgreBotSharp...
     /// </summary>
