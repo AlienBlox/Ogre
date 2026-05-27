@@ -5,7 +5,6 @@ using DSharpPlus.SlashCommands;
 
 public class ChemistryCommands : ApplicationCommandModule
 {
-    // Reuse a single HttpClient instance across your bot commands to prevent socket exhaustion
     private static readonly HttpClient HttpClient = new();
 
     [SlashCommand("pubchem", "Search for a chemical compound and download its structural .mol file.")]
@@ -13,16 +12,14 @@ public class ChemistryCommands : ApplicationCommandModule
         InteractionContext ctx,
         [Option("compound", "The common or systematic name of the chemical (e.g., aspirin, caffeine)")] string compoundName)
     {
-        // Defer response immediately since external API network requests can take a few seconds
         await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
 
         try
         {
-            // URL Encode the string parameter to make sure spaces or special characters don't break the web request
             string encodedName = Uri.EscapeDataString(compoundName);
 
-            // Step 1: Query PubChem's REST API to resolve the compound name into its standard CID
-            string cidUrl = $"https://nih.gov//{encodedName}/cids/JSON";
+            // 1. Query PubChem's REST API to resolve the compound name into its standard CID
+            string cidUrl = $"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{encodedName}/cids/JSON";
             var cidResponse = await HttpClient.GetAsync(cidUrl);
 
             if (!cidResponse.IsSuccessStatusCode)
@@ -32,17 +29,22 @@ public class ChemistryCommands : ApplicationCommandModule
                 return;
             }
 
-            // Parse the CID out of the returned JSON structure
             string jsonString = await cidResponse.Content.ReadAsStringAsync();
             using var jsonDoc = JsonDocument.Parse(jsonString);
 
-            // Extract the first matching ID from the array hierarchy
+            // --- FIXED JSON EXTRACTION PATH ---
+            // PubChem returns "CID" as a JSON Array (e.g., "CID": [2519]). 
+            // We use .EnumerateArray().First().GetInt32() to cleanly extract index 0.
             var root = jsonDoc.RootElement;
-            int cid = root.GetProperty("IdentifierList").GetProperty("CID")[0].GetInt32();
+            int cid = root.GetProperty("IdentifierList")
+                          .GetProperty("CID")
+                          .EnumerateArray()
+                          .First()
+                          .GetInt32();
+            // ----------------------------------
 
-            // Step 2: Request the structural .mol schema string using the resolved CID
-            // We request the standard 2D SDF structural layout (which maps matching structural coordinate points)
-            string molUrl = $"https://nih.gov/{cid}/SDF";
+            // 2. Request the structural .mol schema string using the resolved CID
+            string molUrl = $"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/SDF";
             var molResponse = await HttpClient.GetAsync(molUrl);
 
             if (!molResponse.IsSuccessStatusCode)
@@ -54,19 +56,18 @@ public class ChemistryCommands : ApplicationCommandModule
 
             string molContent = await molResponse.Content.ReadAsStringAsync();
 
-            // Step 3: Convert the raw string content directly into an in-memory byte stream layout
+            // 3. Convert the raw string content directly into an in-memory byte stream layout
             byte[] fileBytes = System.Text.Encoding.UTF8.GetBytes(molContent);
             using var memoryStream = new MemoryStream(fileBytes);
 
-            // Standardize file name parsing configurations
             string safeFileName = compoundName.Replace(" ", "_").ToLower();
 
-            // Step 4: Dispatch the text block back as a downloadable file attachment
+            // 4. Dispatch the text block back as a downloadable file attachment
             var responseBuilder = new DiscordWebhookBuilder()
                 .WithContent($"🧪 **PubChem Chemical Record Found!**\n" +
                              $"• **Name:** `{compoundName}`\n" +
                              $"• **Compound ID (CID):** `{cid}`\n" +
-                             $"• **Source URL:** <https://nih.gov{cid}>\n\n" +
+                             $"• **Source URL:** <https://pubchem.ncbi.nlm.nih.gov/compound/{cid}>\n\n" +
                              $"Attached is your `.mol` structure modeling file:")
                 .AddFile($"{safeFileName}.mol", memoryStream);
 
@@ -76,7 +77,7 @@ public class ChemistryCommands : ApplicationCommandModule
         {
             Console.WriteLine($"[ERROR] PubChem handler error: {ex.Message}");
             await ctx.EditResponseAsync(new DiscordWebhookBuilder()
-                .WithContent("❌ **System Failure:** An error occurred while communicating with the PubChem servers."));
+                .WithContent("❌ **System Failure:** An error occurred while parsing the PubChem data structure."));
         }
     }
 }
