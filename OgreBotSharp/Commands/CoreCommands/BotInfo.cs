@@ -6,6 +6,7 @@ namespace OgreBotSharp.Commands.CoreCommands
 {
     public class BotInfo : ApplicationCommandModule
     {
+        [SlashCommand("botinfo", "Get information about the bot.")]
         public async Task BotInfoCommand(InteractionContext ctx)
         {
             var botUser = ctx.Client.CurrentUser;
