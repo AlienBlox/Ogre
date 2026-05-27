@@ -12,7 +12,7 @@ namespace OgreBotSharp
 
         internal async static Task GetVer()
         {
-            HttpClient client = new HttpClient();
+            HttpClient client = new();
 
             string changelogUrl = "https://raw.githubusercontent.com/AlienBlox/Ogre/main/Version.txt";
 
@@ -74,7 +74,10 @@ namespace OgreBotSharp
                 // ------------------------------------
 
                 await discord.ConnectAsync();
-                await Task.Delay(-1);
+
+                await BotDiagnostics.GetVer();
+
+                await Task.Delay(-1);               
             }
             catch (Exception ex)
             {

@@ -3,7 +3,7 @@ using DSharpPlus.SlashCommands;
 
 namespace OgreBotSharp.Commands.Fun
 {
-    public class ProteinCommands
+    public class ProteinCommands : ApplicationCommandModule
     {
         private static readonly HttpClient _httpClient = new HttpClient();
 
