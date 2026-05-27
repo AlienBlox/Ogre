@@ -13,11 +13,11 @@ public class ChemistryCommands : ApplicationCommandModule
         InteractionContext ctx,
         [Option("compound", "The common or systematic name of the chemical (e.g., aspirin, caffeine)")] string compoundName)
     {
+        // Defer response immediately to avoid a 3-second gateway timeout
         await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
 
         try
         {
-            // Lowercase and trim the input to ensure predictable API query results
             string cleanInput = compoundName.Trim().ToLower();
             string encodedName = Uri.EscapeDataString(cleanInput);
 
@@ -42,8 +42,8 @@ public class ChemistryCommands : ApplicationCommandModule
                           .First()
                           .GetInt32();
 
-            // 2. Fetch structural Data File string content (.SDF/.MOL format)
-            string molUrl = $"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/SDF";
+            // 2. Fetch structural Data File string content (.SDF format)
+            string molUrl = $"https://nih.gov{cid}/SDF";
             var molResponse = await HttpClient.GetAsync(molUrl);
 
             if (!molResponse.IsSuccessStatusCode)
@@ -58,23 +58,27 @@ public class ChemistryCommands : ApplicationCommandModule
             // 3. Prepare the plain-text in-memory data attachment stream
             byte[] fileBytes = System.Text.Encoding.UTF8.GetBytes(molContent);
             using var memoryStream = new MemoryStream(fileBytes);
+
+            // --- CRITICAL FIX: RESET THE STREAM POINTER POSITION ---
+            // Forces DSharpPlus to read from byte 0 instead of reading an empty stream
+            memoryStream.Position = 0;
+            // --------------------------------------------------------
+
             string safeFileName = cleanInput.Replace(" ", "_");
-
-            // --- 4. SAFE STRING CAPITIALIZATION FIX ---
-            // Uses TextInfo to prevent character slicing array indexing crashes
             string formattedTitle = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(cleanInput);
-            string imageUrl = $"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/PNG";
+            string imageUrl = $"https://nih.gov{cid}/PNG";
 
+            // 4. Construct the UI rich card wrapper
             var embed = new DiscordEmbedBuilder()
                 .WithTitle($"🧪 PubChem Chemical Record: {formattedTitle}")
-                .WithUrl($"https://nih.gov{cid}")
-                .WithColor(new DiscordColor("#0071BC")) // PubChem signature blue
+                .WithUrl($"https://pubchem.ncbi.nlm.nih.gov/compound/{cid}")
+                .WithColor(new DiscordColor("#0071BC")) // PubChem official blue
                 .AddField("Compound ID (CID)", $"`{cid}`", true)
                 .AddField("Format Type", "`.mol` (2D Spatial Mapping)", true)
                 .WithImageUrl(imageUrl)
-                .WithFooter("Data sourced dynamically via PubChem PUG REST API Framework");
+                .WithFooter("Data sourced dynamically via PubChem PUG REST API");
 
-            // 5. Build and transmit the combined message payload layout
+            // 5. Build and transmit the combined message layout
             var responseBuilder = new DiscordWebhookBuilder()
                 .AddEmbed(embed)
                 .AddFile($"{safeFileName}.mol", memoryStream);
@@ -83,10 +87,10 @@ public class ChemistryCommands : ApplicationCommandModule
         }
         catch (Exception ex)
         {
-            // Logs the specific crash point to your console/Railway dashboard for easy debugging
-            Console.WriteLine($"[CRITICAL ERROR] PubChem Engine Exception: {ex.Message}\n{ex.StackTrace}");
+            // Standard error output tracking for local debugging & Railway log panels
+            Console.WriteLine($"[CRITICAL ERROR] PubChem Exception: {ex.Message}\n{ex.StackTrace}");
             await ctx.EditResponseAsync(new DiscordWebhookBuilder()
-                .WithContent("❌ **System Failure:** An error occurred while parsing the PubChem data structure. Check internal console runtime logs."));
+                .WithContent("❌ **System Failure:** An internal error occurred while parsing the PubChem asset structure. Check console logs."));
         }
     }
 }
