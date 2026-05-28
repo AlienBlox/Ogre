@@ -64,7 +64,7 @@ namespace OgreBotSharp.Commands.Fun
 
                 string safeFileName = compoundName.Replace(" ", "_").ToLower();
 
-                DiscordButtonComponent Clicker = new(ButtonStyle.Success, $"https://nanocrystallography.research.pdx.edu/psu-3d-converter/", "3D Print Me!");
+                DiscordLinkButtonComponent Clicker = new("https://nanocrystallography.research.pdx.edu/psu-3d-converter/", "3D Print Me!");
 
                 // 4. Dispatch the text block back as a downloadable file attachment
                 var responseBuilder = new DiscordWebhookBuilder()
