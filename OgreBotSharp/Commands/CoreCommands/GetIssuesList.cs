@@ -24,6 +24,8 @@ namespace OgreBotSharp.Commands.CoreCommands
                 string repo = Environment.GetEnvironmentVariable("GH_REPO_NAME") ?? "Ogre";
                 List<string> issues = [];
 
+                client.DefaultRequestHeaders.UserAgent.ParseAdd($"OgreBotSharp/{BotDiagnostics.Version}");
+
                 var content = await client.GetStreamAsync($"https://api.github.com/repos/{user}/{repo}/issues");
                 var json = await JsonDocument.ParseAsync(content);
 
