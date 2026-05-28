@@ -40,7 +40,7 @@ namespace OgreBotSharp.Commands.CoreCommands
                     string title = issue.GetProperty("title").GetString() ?? "No Title";
                     string url = issue.GetProperty("url").GetString() ?? "No URL";
                     string body = issue.GetProperty("body").GetString() ?? "No Content";
-                    issues.Add($"Title: {title}\nUrl: {url}\nContent: {body}");
+                    issues.Add($"Title: {title}\nUrl: {url}\nContent:\n{body}");
                 }
 
                 foreach (var issue in issues)
