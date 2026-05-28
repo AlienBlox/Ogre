@@ -29,6 +29,8 @@ namespace OgreBotSharp.Commands.CoreCommands
                 var content = await client.GetStreamAsync($"https://api.github.com/repos/{user}/{repo}/issues");
                 var json = await JsonDocument.ParseAsync(content);
 
+                string joined = string.Empty;
+
                 int count = json.RootElement.EnumerateArray().Count();
 
                 if (count > countAmount)
@@ -45,9 +47,11 @@ namespace OgreBotSharp.Commands.CoreCommands
 
                 foreach (var issue in issues)
                 {
-                    await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource,
-                        new DiscordInteractionResponseBuilder().WithContent(issue));
+                    joined += $"{issue}\n";
                 }
+
+                await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource,
+                    new DiscordInteractionResponseBuilder().WithContent(joined));
             }
             catch (Exception ex)
             {
