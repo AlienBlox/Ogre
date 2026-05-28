@@ -8,7 +8,7 @@ namespace OgreBotSharp.Commands.CoreCommands
     public class GetIssuesList : ApplicationCommandModule
     {
         [SlashCommand("getissues", "Fetches the bot's issue list on GitHub. (Choose amount.)")]
-        public async Task GetIssuesCommand(InteractionContext ctx, [Option("countamount", "Number of issues to fetch (1-20).")] int countAmount = 5)
+        public async Task GetIssuesCommand(InteractionContext ctx, [Option("countamount", "Number of issues to fetch (1-20).")] long countAmount = 5)
         {
             try
             {
@@ -30,7 +30,7 @@ namespace OgreBotSharp.Commands.CoreCommands
                 int count = json.RootElement.EnumerateArray().Count();
 
                 if (count > countAmount)
-                    count = countAmount;
+                    count = (int)countAmount;
 
                 for (var i = 0; i < count; i++)
                 {
